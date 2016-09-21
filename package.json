@@ -1,0 +1,21 @@
+{
+  "name": "routelet",
+  "version": "1.0.0",
+  "description": "",
+  "main": "webpack.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://gitlab-1440946532.ap-southeast-2.elb.amazonaws.com/tabcdl/routelet.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "react": "^15.3.2",
+    "react-dom": "^15.3.2",
+    "ts-loader": "^0.8.2",
+    "typescript": "^1.8.10"
+  }
+}
