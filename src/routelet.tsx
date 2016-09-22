@@ -1,6 +1,6 @@
 import * as React from 'react'
 import * as ReactDom from 'react-dom'
-import {router, Router } from './router'
+import {nav, router, Router, apply as applyRoutes } from './router'
 
 
 interface RoutedComponent {
@@ -14,14 +14,24 @@ const home: RoutedComponent = (parent, router) => {
 
 const legacy: RoutedComponent = (parent, router) => { }
 
-
-router.register('*', () => {
-function HelloWorld ()
+function Page ({name}: {name: string})
 {
-    return <div >Hello world </div>
+    return <div>
+        <h1> {name} </h1>
+        <a onClick={nav('/bar')}> Bob </a>
+        <a onClick={nav('/foo')}> Foo </a>
+        <a onClick={nav('/foo/baz')}> Foo and Baz </a>
+    </div>
 }
 
-ReactDom.render(<HelloWorld />, document.querySelector('RouteletTest'))
-})
+function page (name: string) {
+    return () => ReactDom.render(<Page name={name} />, document.querySelector('RouteletTest'))
+}
 
-router.apply()
+router.register('*', page("Index"))
+router.register('foo', page("Foo"))
+router.register('bar', page("Bar"))
+router.register('*/baz', page("Foo and Baz"))
+
+
+applyRoutes()
