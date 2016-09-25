@@ -64,7 +64,8 @@ interface route {
     pattern: string,
     extractVariables: extractionFunction
     rank: rankingFunction,
-    routeDidEnterCallback: routeDidEnterCallback
+    routeDidEnterCallback: routeDidEnterCallback,
+    buildPath: (map: map) => string,
 }
 
 
@@ -125,35 +126,61 @@ function buildExtractVariablesFunction(route: string[]): (path: splitPath) => ma
         .reduce((previous, current) => (path) => current.extract(previous(path), path[current.index]), (path: splitPath) => ({} as map))
 }
 
+/*************************
+ *       Buliding 
+ *************************/
+
+
+function getPathBuilderFunction(token: string) {
+    if (token.charAt(0) === ':')
+        return (map: map) => map[token.substr(1)] || `<${token}>`
+
+    return () => token
+}
+
+function buildPathBuilder(basePath: string, route: string[]): (map) => string {
+    return route
+        .map(token => getPathBuilderFunction(token))
+        .reduce((previous, fn) => (map) => `${previous(map)}/${fn(map)}`, (map: map) => basePath)
+}
 
 /*************************
  *      The rest 
  *************************/
 
 
-function buildRoute(pattern: string, routeDidEnterCallback: routeDidEnterCallback): route {
+function buildRoute(basePath: string, pattern: string, routeDidEnterCallback: routeDidEnterCallback): route {
     const parts = pattern.split('/')
     const rank = buildRankingFunction(parts)
     const extractVariables = buildExtractVariablesFunction(parts)
-
+    const buildPath = buildPathBuilder(basePath, parts)
     return {
         length: parts.length,
         extractVariables,
         pattern,
         rank,
         routeDidEnterCallback,
+        buildPath,
     }
 }
 
-const registerWithTable = (routeTable: RouteTable) => (routePattern: string, callback: routeDidEnterCallback) => routeTable.push(buildRoute(routePattern, callback))
 
+const registerWithTable = (routeTable: RouteTable, basePath: string) => (routePattern: string, callback: routeDidEnterCallback) => {
+    const route = buildRoute(basePath, routePattern, callback);
+    routeTable.push(route)
+    return route.buildPath
+}
+
+// This is the worst one .... It's not particularly functional with all the mutating lets.
 function createRouter(
-    routeTable: RouteTable,
+    basePath: string,
     registerPathDidUpdate: (pathDidUpdate: (path: string) => void) => void,
     shouldDispose: callback0
 ): Router {
-
-    let lastRoute: route, lastMatchedPath: string, dispatchToSubRoute: (path: path) => void, disposeSub: trigger0
+    const routeTable = []
+    let lastMatchedPath: string
+    let dispatchToSubRoute: (path: path) => void
+    let disposeSubrouter: trigger0
     let routeDidLeaveCallback: routeDidLeaveCallback | void
 
     shouldDispose.on(() => {
@@ -166,9 +193,9 @@ function createRouter(
         const tokens = path.split('/')
         const route = matchRoute(routeTable)(tokens)
         const matchedPath = tokens.slice(0, route && route.length || 0).join('/')
-        
+
         if (matchedPath !== lastMatchedPath) {
-            disposeSub && disposeSub.trigger()
+            disposeSubrouter && disposeSubrouter.trigger()
             if (routeDidLeaveCallback) {
                 (<routeDidLeaveCallback>routeDidLeaveCallback)()
             }
@@ -176,25 +203,23 @@ function createRouter(
 
         if (route) {
             if (matchedPath !== lastMatchedPath) {
-                const dispoleCallback = disposeSub = creaceCallback0()
-                const subRouter = createRouter([], (d) => dispatchToSubRoute = d, dispoleCallback)
+                const dispose = disposeSubrouter = creaceCallback0()
+                const subRouter = createRouter(`${basePath}/${matchedPath}`, (d) => dispatchToSubRoute = d, dispose)
                 const variables = route.extractVariables(tokens)
                 routeDidLeaveCallback = route && route.routeDidEnterCallback(variables, subRouter, path)
             }
             dispatchToSubRoute(tokens.slice(route.length).join('/'))
         }
         lastMatchedPath = matchedPath
-        lastRoute = route
     })
 
     return {
-        register: registerWithTable(routeTable)
+        register: registerWithTable(routeTable, basePath)
     }
 }
 
-const rootTable = [] as RouteTable
 let dispatch: (path: string) => void
-export const router = createRouter(rootTable, (d) => dispatch = d, creaceCallback0());
+export const router = createRouter('', (d) => dispatch = d, creaceCallback0());
 
 export function browserPathDidChange(path: string) {
     dispatch && dispatch(path)
