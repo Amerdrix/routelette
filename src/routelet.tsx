@@ -1,9 +1,16 @@
 import * as React from 'react'
 import * as ReactDom from 'react-dom'
-import {nav, router, Router, apply as applyRoutes } from './router'
+import { router, browserPathDidChange, Router } from './router'
+import { nav, attach as attachNav, onBrowserPathDidChange } from './nav'
 
-function render(element: React.ReactElement<any>){
-    ReactDom.render(element, document.querySelector('RouteletTest'))
+function render(element: React.ReactElement<any>) {
+    const page = (<div>
+        {element}
+        <input type="text" onChange={(e) => { nav(e.target.value)() } } />
+
+    </div>)
+
+    ReactDom.render(page, document.querySelector('RouteletTest'))
 }
 
 interface RoutedComponent {
@@ -17,26 +24,44 @@ const home: RoutedComponent = (parent, router) => {
 
 const legacy: RoutedComponent = (parent, router) => { }
 
-function Page ({name}: {name: string})
-{
-    return <div>
-        <h1 onClick={nav('/')}> {name}  </h1>       
-    </div>
+
+function page(name: string) {
+    return (variables) => render(<div><h1 onClick={nav('/', false) }>{name}</h1> <h2>{variables.name}</h2></div>)
 }
 
-function page (name: string) {
-    return (variables) => render(<div><h1>{name}</h1> <h2>{variables.name}</h2></div>)
+function notFound(_, __, path) {
+    page("404")({ name: path })
 }
 
-function notFound(_, __, path){
-    page("404")({name: path})     
-}
+router.register('', (_, route) => {
+    page('Index')(_)
+})
 
-router.register('', page('Index'))
-router.register('test/:name', page('Test'))
-router.register('child', (_, router) => {
-    router.register(':name', page("Child -> "))
+const test = router.register('test/:name', page('Test'))
+router.register('child/specific/:name', page('specific child'))
+router.register('child', (_, route) => {
+    console.log('Building routes for child')
+    
+    route.register('*', page("Child"))
+    route.register(':name', page("Child -> "))
+
+    route.register('child', (_, route) => {
+        console.log('Building routes for nested child')
+
+        route.register('*', page("Nested Child"))
+        route.register(':name', page("Nested Child -> "))
+
+        return () => {
+            console.log('Dispose nested child routes')
+        }
+    })
+    return () => {
+        console.log('Dispose child routes')
+    }
 })
 
 router.register('*', notFound)
-applyRoutes()
+
+onBrowserPathDidChange(browserPathDidChange)
+
+attachNav()

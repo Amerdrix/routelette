@@ -2,6 +2,30 @@ type pathSegment = string
 type path = string
 type splitPath = string[]
 
+interface callback0 {
+    on: (fn: () => void) => void
+}
+
+interface trigger0 {
+    trigger: () => void
+}
+
+function creaceCallback0(): trigger0 & callback0 {
+    let _on: () => void
+    return {
+        trigger: () => _on && _on(),
+        on: (fn: () => void) => _on = fn
+    }
+}
+
+function callback1<T1>() {
+    let _on: (arg1: T1) => void
+    return {
+        trigger: (arg1: T1) => _on && _on(arg1),
+        on: (fn: (arg1: T1) => void) => _on = fn
+    }
+}
+
 
 interface map {
     [name: string]: string
@@ -19,8 +43,12 @@ interface pathChangedCallback {
     (path: string): void
 }
 
-interface matchCallback {
-    (extractedVariables: map, nestedRouter: Router, path: string): void
+export interface routeDidLeaveCallback {
+    (): void
+}
+
+export interface routeDidEnterCallback {
+    (extractedVariables: map, nestedRouter: Router, path: string): routeDidLeaveCallback | void
 }
 
 interface matchingFunction {
@@ -36,7 +64,7 @@ interface route {
     pattern: string,
     extractVariables: extractionFunction
     rank: rankingFunction,
-    callback: matchCallback
+    routeDidEnterCallback: routeDidEnterCallback
 }
 
 
@@ -49,7 +77,7 @@ const identity = (i) => i
  *************************/
 
 const exactMatch = (pattern) => (token) => pattern === token ? 1 : 0
-const namedMatch = (pattern) => (token) => .9
+const namedMatch = (pattern) => (token) => token ? .9 : 0
 const wildcardMatch = (pattern) => (token) => .8
 
 function getMachingFunction(pattern: string): matchingFunction {
@@ -68,8 +96,13 @@ function buildRankingFunction(route: string[]): rankingFunction {
         .reduce((rankingFunction: rankingFunction, x) => (tokens) => rankingFunction(tokens) * 2 * x.matchingFunction(tokens[x.index]), () => 1)
 }
 
+const matchRoute = (table: RouteTable) => (tokens: string[]) => {
+    const sorted = table.filter(x => x.rank(tokens) > 0).sort((a, b) => b.rank(tokens) - a.rank(tokens))
+    return sorted[0]
+}
+
 /*************************
- *      Matching 
+ *   Variable extraction 
  *************************/
 
 function set(map: map, name: string, value: any) {
@@ -77,7 +110,7 @@ function set(map: map, name: string, value: any) {
     return map
 }
 
-const namedExtract = (pattern) =>  (current: map, token: string) => set(current, pattern.substring(1), token)
+const namedExtract = (pattern) => (current: map, token: string) => set(current, pattern.substring(1), token)
 
 function getExtractionFunction(token): extractVariables {
     if (token.charAt(0) === ':')
@@ -92,7 +125,13 @@ function buildExtractVariablesFunction(route: string[]): (path: splitPath) => ma
         .reduce((previous, current) => (path) => current.extract(previous(path), path[current.index]), (path: splitPath) => ({} as map))
 }
 
-function buildRoute(pattern: string, callback: matchCallback): route {
+
+/*************************
+ *      The rest 
+ *************************/
+
+
+function buildRoute(pattern: string, routeDidEnterCallback: routeDidEnterCallback): route {
     const parts = pattern.split('/')
     const rank = buildRankingFunction(parts)
     const extractVariables = buildExtractVariablesFunction(parts)
@@ -102,43 +141,50 @@ function buildRoute(pattern: string, callback: matchCallback): route {
         extractVariables,
         pattern,
         rank,
-        callback
+        routeDidEnterCallback,
     }
 }
 
-const normalisePath = (path: string) => path.match((/\/*(.*?)\/*$/))[1]
-const getPathFromBrowser = () => normalisePath(`${normalisePath(window.location.pathname)}/${normalisePath(window.location.hash.substring(1))}`)
+const registerWithTable = (routeTable: RouteTable) => (routePattern: string, callback: routeDidEnterCallback) => routeTable.push(buildRoute(routePattern, callback))
 
+function createRouter(
+    routeTable: RouteTable,
+    registerPathDidUpdate: (pathDidUpdate: (path: string) => void) => void,
+    shouldDispose: callback0
+): Router {
 
-const matchRoute = (table: RouteTable) => (tokens: string[]) => {
-    const sorted = table.filter(x => x.rank(tokens) > 0).sort((a, b) => b.rank(tokens) - a.rank(tokens))
-    return sorted[0]
-}
+    let lastRoute: route, lastMatchedPath: string, dispatchToSubRoute: (path: path) => void, disposeSub: trigger0
+    let routeDidLeaveCallback: routeDidLeaveCallback | void
 
-const registerWithTable = (routeTable: RouteTable) => (route: string, callback: matchCallback) => routeTable.push(buildRoute(route, callback))
-
-function createRouter(routeTable: RouteTable, registerPathDidUpdate: (pathDidUpdate: (path: string) => void) => void): Router {
-    let currentRoute: route
-    let dispatchToSubRoute: (path: path) => void
+    shouldDispose.on(() => {
+        if (routeDidLeaveCallback) {
+            (<routeDidLeaveCallback>routeDidLeaveCallback)()
+        }
+    })
 
     registerPathDidUpdate((path) => {
-        path = normalisePath(path);
         const tokens = path.split('/')
         const route = matchRoute(routeTable)(tokens)
+        const matchedPath = tokens.slice(0, route && route.length || 0).join('/')
         
-        if (currentRoute === route) {
-            return
+        if (matchedPath !== lastMatchedPath) {
+            disposeSub && disposeSub.trigger()
+            if (routeDidLeaveCallback) {
+                (<routeDidLeaveCallback>routeDidLeaveCallback)()
+            }
         }
 
-        if(route)
-        {
-            const subRouter = createRouter([], (d) => dispatchToSubRoute = d)
-            const variables = route.extractVariables(tokens)
-            route && route.callback(variables, subRouter, path)
-
-            dispatchToSubRoute(tokens.slice(route.length).join('/') )
-
+        if (route) {
+            if (matchedPath !== lastMatchedPath) {
+                const dispoleCallback = disposeSub = creaceCallback0()
+                const subRouter = createRouter([], (d) => dispatchToSubRoute = d, dispoleCallback)
+                const variables = route.extractVariables(tokens)
+                routeDidLeaveCallback = route && route.routeDidEnterCallback(variables, subRouter, path)
+            }
+            dispatchToSubRoute(tokens.slice(route.length).join('/'))
         }
+        lastMatchedPath = matchedPath
+        lastRoute = route
     })
 
     return {
@@ -148,17 +194,12 @@ function createRouter(routeTable: RouteTable, registerPathDidUpdate: (pathDidUpd
 
 const rootTable = [] as RouteTable
 let dispatch: (path: string) => void
-export const router = createRouter(rootTable, (d) => dispatch = d);
+export const router = createRouter(rootTable, (d) => dispatch = d, creaceCallback0());
 
-window.addEventListener('popstate', () => {
-    dispatch(getPathFromBrowser())
-})
-export const nav = (path) => () => {
-    window.history.pushState(null, '', path)
-    dispatch(getPathFromBrowser())
+export function browserPathDidChange(path: string) {
+    dispatch && dispatch(path)
 }
 
-export const apply = () => dispatch(getPathFromBrowser())
 export interface Router {
-    register: (route: string, onMatch: matchCallback) => void,
- }
+    register: (route: string, routeDidEnterCallback: routeDidEnterCallback) => void,
+}
