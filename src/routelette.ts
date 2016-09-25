@@ -190,6 +190,7 @@ function createRouter(
     })
 
     registerPathDidUpdate((path) => {
+        
         const tokens = path.split('/')
         const route = matchRoute(routeTable)(tokens)
         const matchedPath = tokens.slice(0, route && route.length || 0).join('/')

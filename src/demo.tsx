@@ -1,7 +1,9 @@
 import * as React from 'react'
 import * as ReactDom from 'react-dom'
-import { router, browserPathDidChange, Router } from './router'
-import { nav, attach as attachNav, onBrowserPathDidChange } from './nav'
+import { router, browserPathDidChange, Router } from './routelette'
+import { nav, attach as attachNav, onBrowserPathDidChange } from './navlette'
+
+onBrowserPathDidChange(browserPathDidChange)
 
 function render(element: React.ReactElement<any>) {
     const page = (<div>
@@ -26,7 +28,7 @@ const legacy: RoutedComponent = (parent, router) => { }
 
 
 function page(name: string) {
-    return (variables) => render(<div><h1 onClick={nav('secret', { allowForward: false, display: false }) }>{name}</h1> <h2>{variables.name}</h2></div>)
+    return (variables) => render(<div><h1 onClick={nav(secret(), { allowForward: false, display: false }) }>{name}</h1> <h2>{variables.name}</h2></div>)
 }
 
 function notFound(_, __, path) {
@@ -38,22 +40,17 @@ router.register('', (_, route) => {
 })
 
 const test = router.register('test/:name', page('Test'))
-router.register('secret', page('Secret'))
+const secret = router.register('secret', page('Secret'))
 router.register('child/specific/:name', page('specific child'))
 router.register('child', (_, route) => {
-    console.log('Building routes for child')
-
-    route.register('*', page("Child"))
     route.register(':name', (_, route) => {
-        console.log('Building routes for nested child')
-
+        route.register(':name', page("Nested Child -> "))
         route.register('*', page("Nested Child"))
-        const c2 = route.register(':name/wha/:hello', page("Nested Child -> "))
-        debugger
         return () => {
             console.log('Dispose nested child routes')
         }
     })
+    route.register('*', page("Child"))
     return () => {
         console.log('Dispose child routes')
     }
@@ -61,6 +58,6 @@ router.register('child', (_, route) => {
 
 router.register('*', notFound)
 
-onBrowserPathDidChange(browserPathDidChange)
+
 
 attachNav()
