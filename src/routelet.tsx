@@ -26,7 +26,7 @@ const legacy: RoutedComponent = (parent, router) => { }
 
 
 function page(name: string) {
-    return (variables) => render(<div><h1 onClick={nav('/', false) }>{name}</h1> <h2>{variables.name}</h2></div>)
+    return (variables) => render(<div><h1 onClick={nav('secret', {allowForward: false, display: false}) }>{name}</h1> <h2>{variables.name}</h2></div>)
 }
 
 function notFound(_, __, path) {
@@ -38,6 +38,7 @@ router.register('', (_, route) => {
 })
 
 const test = router.register('test/:name', page('Test'))
+router.register('secret', page('Secret'))
 router.register('child/specific/:name', page('specific child'))
 router.register('child', (_, route) => {
     console.log('Building routes for child')

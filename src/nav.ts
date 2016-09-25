@@ -1,61 +1,78 @@
 const normalisePath = (path: string) => path.match((/\/*(.*?)\/*$/))[1]
 const getPathFromBrowser = () => normalisePath(`${normalisePath(window.location.pathname)}/${normalisePath(window.location.hash.substring(1))}`)
 
-let currentDepth = 0
+let doubleBack: boolean
 let onPopstate
 
-window.addEventListener('popstate', () => {  
-    if (onPopstate){
+window.addEventListener('popstate', () => {
+    if (onPopstate) {
         onPopstate()
         return;
     }
-    const [state, title, path] = [window.history.state, window.document.title, window.location.pathname]
-    const direction = state.depth - currentDepth 
-    currentDepth = state.depth
+    const [state, title, path] = [window.history.state, window.document.title, window.history.state.path || window.location.pathname]
+    console.log(state)
 
-    if(window.history.state && window.history.state.preventForward && direction === -1) {
+    if (window.history.state && window.history.state.preventForward) {
+
         // The only way we can clear the forward navigation is by pushing new state
         // if we push new state without moving back then we will end up with a duplicate entry in the back direction
         // if we push before the pop has finished (history.back is async) then we will have a duplicate in the forward direction
         // if we move back when depth is zero, we go out of the current page and lose control (which is worse than duplicated history)
-        if(state.depth === 0)
-        {
-            window.history.pushState(state, title, path)
+        if (state.first) {
+            if (state.applied) {
+                return
+            }
+            state.applied = true
+            window.history.replaceState(state, null, null)
+            delete state['applied']
+            delete state['first']
+            window.history.pushState(state, null, null)
             dispatch(path)
-        }else{
+        } else {
             window.history.back()
             onPopstate = () => {
-                window.history.pushState(state, title, path)    
+                window.history.pushState(state, title, path)
                 dispatch(path)
                 onPopstate = null;
             }
         }
-    }else{
-        dispatch(getPathFromBrowser())
+    } else {
+        dispatch(path)
     }
 })
 
-export const nav = (path, {allowForward = true, display = true} = {} ) => () => {
-    if(!allowForward){
-        const [state, title, path] = [window.history.state, window.document.title, window.location.pathname]
+export const nav = (path, {allowForward, display}: { allowForward: boolean, display: boolean } = { display: true, allowForward: true }) => () => {
+    const state = window.history.state
+    if (!allowForward) {
         state.preventForward = true
-        window.history.replaceState(state, title, path)
+        if (state.first) {
+            state.applied = false
+        }
+        window.history.replaceState(state, null, null)
+    } else if (state.preventForward) {
+        delete state['preventForward']
+            window.history.replaceState(state, null, null)
     }
-    const depth =  window.history.state.depth + 1
-    currentDepth = depth
-    window.history.pushState({depth}, '', `/${normalisePath(path)}`)
+
+    const normalisedPath = `/${normalisePath(path)}`
+    if (display) {
+        window.history.pushState({}, '', normalisedPath)
+    } else {
+        window.history.pushState({ path: normalisedPath }, '', '')
+    }
+
     dispatch(path)
 }
 
-let dispatch: (path: string) => void = (_) => {}
+let dispatch: (path: string) => void = (_) => { }
 
-export function onBrowserPathDidChange(fn: (path: string) => void ){
+export function onBrowserPathDidChange(fn: (path: string) => void) {
     dispatch = (p) => fn(normalisePath(p))
 }
 
 export const attach = () => {
     const [state, title, path] = [window.history.state || {}, window.document.title, window.location.pathname]
-    state.depth = 0
+    state.first = true
     window.history.replaceState(state, title, path)
     dispatch(getPathFromBrowser())
 }
