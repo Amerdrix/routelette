@@ -2,7 +2,8 @@
   "compilerOptions": {
     "target": "es5",
     "sourceMap": true,
-    "jsx": "react"
+    "jsx": "react",
+    "module": "amd"
   },
   "exclude": [
     "node_modules"

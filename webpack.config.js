@@ -2,7 +2,9 @@ var path = require('path')
 
 module.exports = {
     entry: {
-        routelet: './src/routelet',
+        navlette: './src/navlette',
+        routelette: './src/routelette',
+        demo: './src/demo'
     },
     output: {
         path: __dirname + '/dist',
@@ -22,5 +24,4 @@ module.exports = {
         hot: true,
         historyApiFallback: true
     }
-
 }
