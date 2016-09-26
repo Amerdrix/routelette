@@ -1,5 +1,6 @@
 const normalisePath = (path: string) => path.match((/\/*(.*?)\/*$/))[1]
 const getPathFromBrowser = () => normalisePath(`${normalisePath(window.location.pathname)}/${normalisePath(window.location.hash.substring(1))}`)
+const getHistoryState = () => window.history.state || {}
 
 let doubleBack: boolean
 let onPopstate
@@ -9,10 +10,10 @@ window.addEventListener('popstate', () => {
         onPopstate()
         return;
     }
-    const [state, title, path] = [window.history.state, window.document.title, window.history.state.path || window.location.pathname]
-    console.log(state)
+    const state =getHistoryState()
+    const path = state.path || getPathFromBrowser()
 
-    if (window.history.state && window.history.state.preventForward) {
+    if (state.preventForward) {
 
         // The only way we can clear the forward navigation is by pushing new state
         // if we push new state without moving back then we will end up with a duplicate entry in the back direction
@@ -31,7 +32,7 @@ window.addEventListener('popstate', () => {
         } else {
             window.history.back()
             onPopstate = () => {
-                window.history.pushState(state, title, path)
+                window.history.pushState(state, null, null)
                 dispatch(path)
                 onPopstate = null;
             }
@@ -71,8 +72,8 @@ export function onBrowserPathDidChange(fn: (path: string) => void) {
 }
 
 export const attach = () => {
-    const [state, title, path] = [window.history.state || {}, window.document.title, window.location.pathname]
+    const state = window.history.state || {}
     state.first = true
-    window.history.replaceState(state, title, path)
+    window.history.replaceState(state, null, null)
     dispatch(getPathFromBrowser())
 }
