@@ -27,7 +27,7 @@ function callback1<T1>() {
 }
 
 
-interface map {
+export interface map {
     [name: string]: string
 }
 
@@ -74,7 +74,7 @@ type RouteTable = route[]
 const identity = (i) => i
 
 /*************************
- *      Matching 
+ *      Matching
  *************************/
 
 const exactMatch = (pattern) => (token) => pattern === token ? 1 : 0
@@ -103,7 +103,7 @@ const matchRoute = (table: RouteTable) => (tokens: string[]) => {
 }
 
 /*************************
- *   Variable extraction 
+ *   Variable extraction
  *************************/
 
 function set(map: map, name: string, value: any) {
@@ -127,7 +127,7 @@ function buildExtractVariablesFunction(route: string[]): (path: splitPath) => ma
 }
 
 /*************************
- *       Buliding 
+ *       Buliding
  *************************/
 
 
@@ -145,7 +145,7 @@ function buildPathBuilder(basePath: string, route: string[]): (map) => string {
 }
 
 /*************************
- *      The rest 
+ *      The rest
  *************************/
 
 
@@ -190,7 +190,7 @@ function createRouter(
     })
 
     registerPathDidUpdate((path) => {
-        
+
         const tokens = path.split('/')
         const route = matchRoute(routeTable)(tokens)
         const matchedPath = tokens.slice(0, route && route.length || 0).join('/')

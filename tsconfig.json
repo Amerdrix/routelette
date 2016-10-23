@@ -3,9 +3,7 @@
     "target": "es5",
     "sourceMap": true,
     "jsx": "react",
-    "module": "amd"
-  },
-  "exclude": [
-    "node_modules"
-  ]
+    "declaration": true,
+    "module": "umd"
+  }
 }
