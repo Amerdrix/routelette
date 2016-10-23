@@ -227,5 +227,5 @@ export function browserPathDidChange(path: string) {
 }
 
 export interface Router {
-    register: (route: string, routeDidEnterCallback: routeDidEnterCallback) => void,
+    register: (route: string, routeDidEnterCallback: routeDidEnterCallback) => (map: map) => string,
 }

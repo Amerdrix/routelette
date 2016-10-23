@@ -10,5 +10,5 @@ export interface routeDidEnterCallback {
 export declare const router: Router;
 export declare function browserPathDidChange(path: string): void;
 export interface Router {
-    register: (route: string, routeDidEnterCallback: routeDidEnterCallback) => void;
+    register: (route: string, routeDidEnterCallback: routeDidEnterCallback) => (map: map) => string;
 }
