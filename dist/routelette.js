@@ -22,9 +22,6 @@
         };
     }
     var identity = function (i) { return i; };
-    /*************************
-     *      Matching
-     *************************/
     var exactMatch = function (pattern) { return function (token) { return pattern === token ? 1 : 0; }; };
     var namedMatch = function (pattern) { return function (token) { return token ? .9 : 0; }; };
     var wildcardMatch = function (pattern) { return function (token) { return .8; }; };
@@ -36,8 +33,8 @@
         return exactMatch(pattern);
     }
     function buildRankingFunction(route) {
-        return route //  [ 'foo', 'bar', '*' ]
-            .map(function (token) { return getMachingFunction(token); }) // [exactMatch, exactMatch, wildcardMatch]
+        return route
+            .map(function (token) { return getMachingFunction(token); })
             .map(function (matchingFunction, index) { return ({ matchingFunction: matchingFunction, index: index }); })
             .reduce(function (rankingFunction, x) { return function (tokens) { return rankingFunction(tokens) * 2 * x.matchingFunction(tokens[x.index]); }; }, function () { return 1; });
     }
@@ -45,9 +42,6 @@
         var sorted = table.filter(function (x) { return x.rank(tokens) > 0; }).sort(function (a, b) { return b.rank(tokens) - a.rank(tokens); });
         return sorted[0];
     }; };
-    /*************************
-     *   Variable extraction
-     *************************/
     function set(map, name, value) {
         map[name] = value;
         return map;
@@ -59,14 +53,11 @@
         return identity;
     }
     function buildExtractVariablesFunction(route) {
-        return route //  [ 'foo', ':bar', '*' ]
-            .map(function (token) { return getExtractionFunction(token); }) // [identity, namedExtract, identity]
+        return route
+            .map(function (token) { return getExtractionFunction(token); })
             .map(function (extract, index) { return ({ extract: extract, index: index }); })
             .reduce(function (previous, current) { return function (path) { return current.extract(previous(path), path[current.index]); }; }, function (path) { return ({}); });
     }
-    /*************************
-     *       Buliding
-     *************************/
     function getPathBuilderFunction(token) {
         if (token.charAt(0) === ':')
             return function (map) { return map[token.substr(1)] || "<" + token + ">"; };
@@ -77,9 +68,6 @@
             .map(function (token) { return getPathBuilderFunction(token); })
             .reduce(function (previous, fn) { return function (map) { return (previous(map) + "/" + fn(map)); }; }, function (map) { return basePath; });
     }
-    /*************************
-     *      The rest
-     *************************/
     function buildRoute(basePath, pattern, routeDidEnterCallback) {
         var parts = pattern.split('/');
         var rank = buildRankingFunction(parts);
@@ -99,7 +87,6 @@
         routeTable.push(route);
         return route.buildPath;
     }; };
-    // This is the worst one .... It's not particularly functional with all the mutating lets.
     function createRouter(basePath, registerPathDidUpdate, shouldDispose) {
         var routeTable = [];
         var lastMatchedPath;
@@ -143,3 +130,4 @@
     }
     exports.browserPathDidChange = browserPathDidChange;
 });
+//# sourceMappingURL=routelette.js.map
